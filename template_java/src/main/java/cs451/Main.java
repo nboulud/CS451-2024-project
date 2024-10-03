@@ -1,18 +1,43 @@
 package cs451;
 
+import java.io.BufferedReader;
+import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.net.DatagramSocket;
 import java.net.Socket;
+import java.net.SocketException;
+import Sende
 
 public class Main {
+
+    private static Logger logger;
 
     private static void handleSignal() {
         //immediately stop network packet processing
         System.out.println("Immediately stopping network packet processing.");
 
-        //write/flush output file if necessary
+        if (sender != null) {
+            sender.interrupt();
+        }
+        if (receiver != null) {
+            receiver.interrupt();
+        }
+        if (logger != null) {
+            logger.close();
+        }
+
+        // Close sockets
+        if (socket != null && !socket.isClosed()) {
+            socket.close();
+        }
+
+        // Write/flush output file if necessary
         System.out.println("Writing output.");
+        if (logger != null) {
+            logger.close();
+        }
     }
 
     private static void initSignalHandlers() {
@@ -23,12 +48,66 @@ public class Main {
             }
         });
     }
+    
+
 
     public static void main(String[] args) throws InterruptedException {
         Parser parser = new Parser(args);
         parser.parse();
 
+        logger = new Logger(parser.output());
+
         initSignalHandlers();
+
+        int m = 0;
+        int receiverId = 0;
+
+        try (BufferedReader br = new BufferedReader(new FileReader(parser.config()))) {
+            String line = br.readLine();
+            String[] parts = line.trim().split("\\s+");
+            m = Integer.parseInt(parts[0]);
+            receiverId = Integer.parseInt(parts[1]);
+        } catch (IOException e) {
+            e.printStackTrace();
+            return;
+        }
+
+        boolean isSender = (parser.myId() != receiverId);
+
+        DatagramSocket socket = null;
+        try {
+            Host myHost = parser.hosts().get(parser.myId() - 1);
+            socket = new DatagramSocket(myHost.getPort());
+        } catch (SocketException e) {
+            e.printStackTrace();
+            return;
+        }
+
+        if (isSender) {
+            Sender sender = new Sender(socket, parser.hosts(), receiverId, m, parser.myId(), parser.output()), logger;
+            sender.start();
+        }
+
+        if (!isSender) {
+            Receiver receiver = new Receiver(socket, parser.hosts(), parser.myId(), parser.output());
+            receiver.start();
+        }
+
+        if (isSender) {
+            sender.start();
+        } else {
+            receiver.start();
+        }
+
+        try {
+            if (isSender) {
+                sender.join();
+            } else {
+                receiver.join();
+            }
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
 
         // example
         long pid = ProcessHandle.current().pid();
