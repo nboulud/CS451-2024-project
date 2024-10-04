@@ -1,24 +1,108 @@
 package cs451;
 
-import java.net.DatagramSocket;
-import java.util.List;
+import java.io.IOException;
+import java.net.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class Sender extends Thread {
-    private DatagramSocket socket;
-    private List<Host> hosts;
-    private int receiverId;
-    private int numMessages;
-    private int myId;
-    private String outputPath;
-    private Logger logger;
+    private final DatagramSocket socket;
+    private final Host receiverHost;
+    private final int numMessages;
+    private final int myId;
+    private final Logger logger;
 
+    // Timeout in milliseconds
+    private static final int TIMEOUT = 100;
 
-    public Sender(DatagramSocket socket, List<Host> hosts, int receiverId, int numMessages, int myId, Logger logger) {
+    // Map to track unacknowledged messages (sequence number -> timestamp)
+    private final ConcurrentHashMap<Integer, Long> unacknowledgedMessages;
+
+    public Sender(DatagramSocket socket, Host receiverHost, int numMessages, int myId, Logger logger) {
+        this.socket = socket;
+        this.receiverHost = receiverHost;
+        this.numMessages = numMessages;
+        this.myId = myId;
         this.logger = logger;
+        this.unacknowledgedMessages = new ConcurrentHashMap<>();
     }
 
     @Override
     public void run() {
-        logger.logSend(1);
+        // Start a thread to listen for acknowledgments
+        Thread ackListener = new Thread(this::listenForAcks);
+        ackListener.start();
+
+        // Send messages
+        for (int seqNum = 1; seqNum <= numMessages; seqNum++) {
+            sendMessage(seqNum);
+            unacknowledgedMessages.put(seqNum, System.currentTimeMillis());
+        }
+
+        // Retransmission loop
+        while (!unacknowledgedMessages.isEmpty() && !Thread.currentThread().isInterrupted()) {
+            long currentTime = System.currentTimeMillis();
+
+            for (Integer seqNum : unacknowledgedMessages.keySet()) {
+                long lastSentTime = unacknowledgedMessages.get(seqNum);
+
+                if (currentTime - lastSentTime >= TIMEOUT) {
+                    sendMessage(seqNum);
+                    unacknowledgedMessages.put(seqNum, currentTime);
+                }
+            }
+
+            try {
+                Thread.sleep(TIMEOUT / 2);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        }
+
+        // Clean up
+        ackListener.interrupt();
+    }
+
+    private void sendMessage(int seqNum) {
+        // Create message data
+        String messageData = myId + ":" + seqNum;
+        byte[] buf = messageData.getBytes();
+
+        try {
+            InetAddress receiverAddress = InetAddress.getByName(receiverHost.getIp());
+            DatagramPacket packet = new DatagramPacket(buf, buf.length, receiverAddress, receiverHost.getPort());
+
+            socket.send(packet);
+
+            // Log the send event
+            logger.logSend(seqNum);
+
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void listenForAcks() {
+        byte[] buf = new byte[256];
+
+        while (!Thread.currentThread().isInterrupted()) {
+            DatagramPacket packet = new DatagramPacket(buf, buf.length);
+
+            try {
+                socket.receive(packet);
+                String received = new String(packet.getData(), 0, packet.getLength());
+
+                // Parse acknowledgment
+                if (received.startsWith("ACK:")) {
+                    int ackSeqNum = Integer.parseInt(received.substring(4));
+                    unacknowledgedMessages.remove(ackSeqNum);
+                }
+
+            } catch (SocketException e) {
+                // Socket closed; exit the loop
+                break;
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
     }
 }

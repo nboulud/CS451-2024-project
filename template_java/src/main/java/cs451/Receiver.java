@@ -1,23 +1,77 @@
 package cs451;
 
-import java.net.DatagramSocket;
-import java.util.List;
+import java.io.IOException;
+import java.net.*;
+import java.util.HashSet;
+import java.util.Set;
 
 public class Receiver extends Thread {
-    private DatagramSocket socket;
-    private List<Host> hosts;
-    private int myId;
-    private String outputPath;
-    private Logger logger;
+    private final DatagramSocket socket;
+    private final int myId;
+    private final Logger logger;
 
-    public Receiver(DatagramSocket socket, List<Host> hosts, int myId, Logger logger ) {
-        
+    // To track delivered messages (senderId:sequenceNumber)
+    private final Set<String> deliveredMessages;
+
+    public Receiver(DatagramSocket socket, int myId, Logger logger) {
+        this.socket = socket;
+        this.myId = myId;
         this.logger = logger;
+        this.deliveredMessages = new HashSet<>();
     }
 
     @Override
     public void run() {
-        
-        
+        byte[] buf = new byte[256];
+        System.out.println("passe par run");
+
+        while (!Thread.currentThread().isInterrupted()) {
+            DatagramPacket packet = new DatagramPacket(buf, buf.length);
+
+            try {
+                socket.receive(packet);
+                String received = new String(packet.getData(), 0, packet.getLength());
+
+                // Parse the message
+                String[] parts = received.split(":");
+                if (parts.length != 2) {
+                    // Invalid message format
+                    continue;
+                }
+
+                int senderId = Integer.parseInt(parts[0]);
+                int seqNum = Integer.parseInt(parts[1]);
+                String messageKey = senderId + ":" + seqNum;
+
+                // Check for duplicates
+                synchronized (deliveredMessages) {
+                    if (!deliveredMessages.contains(messageKey)) {
+                        // Deliver the message
+                        deliveredMessages.add(messageKey);
+
+                        // Log the delivery event
+                        System.out.println("passe par là");
+                        logger.logDeliver(senderId, seqNum);
+                    }
+                    // Else, duplicate message; ignore
+                }
+
+                // Send acknowledgment back to sender
+                String ackMessage = "ACK:" + seqNum;
+                byte[] ackBuf = ackMessage.getBytes();
+
+                InetAddress senderAddress = packet.getAddress();
+                int senderPort = packet.getPort();
+
+                DatagramPacket ackPacket = new DatagramPacket(ackBuf, ackBuf.length, senderAddress, senderPort);
+                socket.send(ackPacket);
+
+            } catch (SocketException e) {
+                // Socket closed; exit the loop
+                break;
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
     }
 }

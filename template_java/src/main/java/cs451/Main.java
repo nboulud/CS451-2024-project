@@ -8,11 +8,16 @@ import java.io.InputStreamReader;
 import java.net.DatagramSocket;
 import java.net.Socket;
 import java.net.SocketException;
-import Sende
+import cs451.Sender;
+import cs451.Receiver;
+import cs451.Logger;
 
 public class Main {
 
     private static Logger logger;
+    private static Sender sender;
+    private static Receiver receiver;
+    private static DatagramSocket socket;
 
     private static void handleSignal() {
         //immediately stop network packet processing
@@ -23,9 +28,6 @@ public class Main {
         }
         if (receiver != null) {
             receiver.interrupt();
-        }
-        if (logger != null) {
-            logger.close();
         }
 
         // Close sockets
@@ -54,8 +56,7 @@ public class Main {
     public static void main(String[] args) throws InterruptedException {
         Parser parser = new Parser(args);
         parser.parse();
-
-        logger = new Logger(parser.output());
+        System.out.println("passe par main");
 
         initSignalHandlers();
 
@@ -74,6 +75,8 @@ public class Main {
 
         boolean isSender = (parser.myId() != receiverId);
 
+        logger = new Logger(parser.output());
+
         DatagramSocket socket = null;
         try {
             Host myHost = parser.hosts().get(parser.myId() - 1);
@@ -84,20 +87,17 @@ public class Main {
         }
 
         if (isSender) {
-            Sender sender = new Sender(socket, parser.hosts(), receiverId, m, parser.myId(), parser.output()), logger;
+            Host receiverHost = parser.hosts().get(receiverId - 1);
+            sender = new Sender(socket, receiverHost, m, parser.myId(), logger);
             sender.start();
         }
 
         if (!isSender) {
-            Receiver receiver = new Receiver(socket, parser.hosts(), parser.myId(), parser.output());
+            Host myHost = parser.hosts().get(parser.myId() - 1);
+            receiver = new Receiver(socket, parser.myId(), logger);
             receiver.start();
         }
 
-        if (isSender) {
-            sender.start();
-        } else {
-            receiver.start();
-        }
 
         try {
             if (isSender) {
