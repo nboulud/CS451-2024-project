@@ -34,6 +34,7 @@ public class Sender extends Thread {
 
         // Send messages
         for (int seqNum = 1; seqNum <= numMessages; seqNum++) {
+            logger.logSend(seqNum);
             sendMessage(seqNum);
             unacknowledgedMessages.put(seqNum, System.currentTimeMillis());
         }
@@ -77,8 +78,6 @@ public class Sender extends Thread {
 
             socket.send(packet);
 
-            // Log the send event
-            logger.logSend(seqNum);
 
         } catch (IOException e) {
             e.printStackTrace();
@@ -95,14 +94,12 @@ public class Sender extends Thread {
                 socket.receive(packet);
                 String received = new String(packet.getData(), 0, packet.getLength());
 
-                // Parse acknowledgment
                 if (received.startsWith("ACK:")) {
                     int ackSeqNum = Integer.parseInt(received.substring(4));
                     unacknowledgedMessages.remove(ackSeqNum);
                 }
 
             } catch (SocketException e) {
-                // Socket closed; exit the loop
                 break;
             } catch (IOException e) {
                 e.printStackTrace();

@@ -12,15 +12,13 @@ public class Receiver extends Thread {
 
     // To track delivered messages (senderId:sequenceNumber)
     private final Set<String> deliveredMessages;
-    private final int expectedTotalMessages;
-    private int receivedMessagesCount = 0;
+ 
 
-    public Receiver(DatagramSocket socket, int myId, Logger logger, int expectedTotalMessages) {
+    public Receiver(DatagramSocket socket, int myId, Logger logger) {
         this.socket = socket;
         this.myId = myId;
         this.logger = logger;
         this.deliveredMessages = new HashSet<>();
-        this.expectedTotalMessages = expectedTotalMessages;
         
     }
 
@@ -67,8 +65,6 @@ public class Receiver extends Thread {
 
                 DatagramPacket ackPacket = new DatagramPacket(ackBuf, ackBuf.length, senderAddress, senderPort);
                 socket.send(ackPacket);
-
-                receivedMessagesCount++;
 
             } catch (SocketException e) {
                 // Socket closed; exit the loop
