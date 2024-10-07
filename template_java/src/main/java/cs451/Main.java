@@ -40,6 +40,7 @@ public class Main {
         if (logger != null) {
             logger.close();
         }
+        
     }
 
     private static void initSignalHandlers() {
@@ -73,6 +74,9 @@ public class Main {
             return;
         }
 
+        int totalSenders = parser.hosts().size() - 1;
+        int expectedTotalMessages = totalSenders * m;
+
         boolean isSender = (parser.myId() != receiverId);
 
         logger = new Logger(parser.output());
@@ -94,7 +98,7 @@ public class Main {
 
         if (!isSender) {
             Host myHost = parser.hosts().get(parser.myId() - 1);
-            receiver = new Receiver(socket, parser.myId(), logger);
+            receiver = new Receiver(socket, parser.myId(), logger, expectedTotalMessages);
             receiver.start();
         }
 
@@ -139,9 +143,9 @@ public class Main {
 
         // After a process finishes broadcasting,
         // it waits forever for the delivery of messages.
-        while (true) {
+        //while (true) {
             // Sleep for 1 hour
-            Thread.sleep(60 * 60 * 1000);
-        }
+          //  Thread.sleep(60 * 60 * 1000);
+        //}
     }
 }

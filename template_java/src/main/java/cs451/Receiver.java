@@ -12,20 +12,23 @@ public class Receiver extends Thread {
 
     // To track delivered messages (senderId:sequenceNumber)
     private final Set<String> deliveredMessages;
+    private final int expectedTotalMessages;
+    private int receivedMessagesCount = 0;
 
-    public Receiver(DatagramSocket socket, int myId, Logger logger) {
+    public Receiver(DatagramSocket socket, int myId, Logger logger, int expectedTotalMessages) {
         this.socket = socket;
         this.myId = myId;
         this.logger = logger;
         this.deliveredMessages = new HashSet<>();
+        this.expectedTotalMessages = expectedTotalMessages;
+        
     }
 
     @Override
     public void run() {
         byte[] buf = new byte[256];
-        System.out.println("passe par run");
 
-        while (!Thread.currentThread().isInterrupted()) {
+        while (!Thread.currentThread().isInterrupted() ) {
             DatagramPacket packet = new DatagramPacket(buf, buf.length);
 
             try {
@@ -50,7 +53,6 @@ public class Receiver extends Thread {
                         deliveredMessages.add(messageKey);
 
                         // Log the delivery event
-                        System.out.println("passe par là");
                         logger.logDeliver(senderId, seqNum);
                     }
                     // Else, duplicate message; ignore
@@ -66,6 +68,8 @@ public class Receiver extends Thread {
                 DatagramPacket ackPacket = new DatagramPacket(ackBuf, ackBuf.length, senderAddress, senderPort);
                 socket.send(ackPacket);
 
+                receivedMessagesCount++;
+
             } catch (SocketException e) {
                 // Socket closed; exit the loop
                 break;
@@ -73,5 +77,6 @@ public class Receiver extends Thread {
                 e.printStackTrace();
             }
         }
+        System.out.println("All messages received. Receiver terminating.");
     }
 }

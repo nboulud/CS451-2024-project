@@ -57,10 +57,14 @@ public class Sender extends Thread {
                 Thread.currentThread().interrupt();
             }
         }
+        System.out.println("All messages acknowledged. Sender terminating.");
 
         // Clean up
         ackListener.interrupt();
+        socket.close();
     }
+
+
 
     private void sendMessage(int seqNum) {
         // Create message data
