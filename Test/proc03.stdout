@@ -1,0 +1,91 @@
+passe par main
+Message envoyé par 3contenant  1
+Message envoyé par 3contenant  2
+Message envoyé par 3contenant  3
+Message envoyé par 3contenant  4
+Message envoyé par 3contenant  5
+Message envoyé par 3contenant  6
+Message envoyé par 3contenant  7
+Message envoyé par 3contenant  8
+Message envoyé par 3contenant  9
+Message envoyé par 3contenant  10
+Message envoyé par 3contenant  1
+Message envoyé par 3contenant  2
+Message envoyé par 3contenant  3
+Message envoyé par 3contenant  4
+Message envoyé par 3contenant  5
+Message envoyé par 3contenant  6
+Message envoyé par 3contenant  7
+Message envoyé par 3contenant  8
+Message envoyé par 3contenant  9
+Message envoyé par 3contenant  10
+Message envoyé par 3contenant  1
+Message envoyé par 3contenant  2
+Message envoyé par 3contenant  3
+Message envoyé par 3contenant  4
+Message envoyé par 3contenant  5
+Message envoyé par 3contenant  6
+Message envoyé par 3contenant  7
+Message envoyé par 3contenant  8
+Message envoyé par 3contenant  9
+Message envoyé par 3contenant  10
+Message envoyé par 3contenant  1
+Message envoyé par 3contenant  2
+Message envoyé par 3contenant  3
+Message envoyé par 3contenant  4
+Message envoyé par 3contenant  5
+Message envoyé par 3contenant  6
+Message envoyé par 3contenant  7
+Message envoyé par 3contenant  8
+Message envoyé par 3contenant  10
+Message reçu de receiver contenant ack 9
+Message reçu de receiver contenant ack 7
+Message reçu de receiver contenant ack 10
+Message reçu de receiver contenant ack 1
+Message reçu de receiver contenant ack 3
+Message envoyé par 3contenant  2
+Message envoyé par 3contenant  4
+Message envoyé par 3contenant  5
+Message envoyé par 3contenant  6
+Message envoyé par 3contenant  8
+Message reçu de receiver contenant ack 4
+Message reçu de receiver contenant ack 8
+Message reçu de receiver contenant ack 6
+Message reçu de receiver contenant ack 5
+Message reçu de receiver contenant ack 2
+All messages acknowledged. Sender terminating.
+My PID: 16082
+
+From a new terminal type `kill -SIGINT 16082` or `kill -SIGTERM 16082` to stop processing packets
+
+My ID: 3
+
+List of resolved hosts is:
+==========================
+1
+Human-readable IP: 127.0.0.1
+Human-readable Port: 11001
+
+2
+Human-readable IP: 127.0.0.1
+Human-readable Port: 11002
+
+3
+Human-readable IP: 127.0.0.1
+Human-readable Port: 11003
+
+
+Path to output:
+===============
+/home/dcl/Project/DA/gitda/Test/proc03.output
+
+Path to config:
+===============
+./../Test/config
+
+Doing some initialization
+
+Broadcasting and delivering messages...
+
+Immediately stopping network packet processing.
+Writing output.
