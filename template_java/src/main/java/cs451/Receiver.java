@@ -31,6 +31,7 @@ public class Receiver extends Thread {
 
             try {
                 socket.receive(packet);
+                
                 String received = new String(packet.getData(), 0, packet.getLength());
 
                 // Parse the message
@@ -43,6 +44,7 @@ public class Receiver extends Thread {
                 int senderId = Integer.parseInt(parts[0]);
                 int seqNum = Integer.parseInt(parts[1]);
                 String messageKey = senderId + ":" + seqNum;
+                System.out.println("Message reçu de " + senderId + " contenant  " + seqNum);
 
                 // Check for duplicates
                 synchronized (deliveredMessages) {
@@ -52,20 +54,22 @@ public class Receiver extends Thread {
 
                         // Log the delivery event
                         logger.logDeliver(senderId, seqNum);
+
+                        String ackMessage = "ACK:" + seqNum;
+                        byte[] ackBuf = ackMessage.getBytes();
+
+                        InetAddress senderAddress = packet.getAddress();
+                        int senderPort = packet.getPort();
+
+                        DatagramPacket ackPacket = new DatagramPacket(ackBuf, ackBuf.length, senderAddress, senderPort);
+                        socket.send(ackPacket);
+                        System.out.println("Ack " + seqNum + " envoyé à " + senderId);
+
                     }
                     // Else, duplicate message; ignore
                 }
 
-                // Send acknowledgment back to sender
-                String ackMessage = "ACK:" + seqNum;
-                byte[] ackBuf = ackMessage.getBytes();
-
-                InetAddress senderAddress = packet.getAddress();
-                int senderPort = packet.getPort();
-
-                DatagramPacket ackPacket = new DatagramPacket(ackBuf, ackBuf.length, senderAddress, senderPort);
-                socket.send(ackPacket);
-
+                
             } catch (SocketException e) {
                 // Socket closed; exit the loop
                 break;

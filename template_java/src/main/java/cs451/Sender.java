@@ -34,7 +34,6 @@ public class Sender extends Thread {
 
         // Send messages
         for (int seqNum = 1; seqNum <= numMessages; seqNum++) {
-            logger.logSend(seqNum);
             sendMessage(seqNum);
             unacknowledgedMessages.put(seqNum, System.currentTimeMillis());
         }
@@ -77,6 +76,7 @@ public class Sender extends Thread {
             DatagramPacket packet = new DatagramPacket(buf, buf.length, receiverAddress, receiverHost.getPort());
 
             socket.send(packet);
+            System.out.println("Message envoyé par " + myId + "contenant  " + seqNum);
 
 
         } catch (IOException e) {
@@ -97,6 +97,8 @@ public class Sender extends Thread {
                 if (received.startsWith("ACK:")) {
                     int ackSeqNum = Integer.parseInt(received.substring(4));
                     unacknowledgedMessages.remove(ackSeqNum);
+                    logger.logSend(ackSeqNum);
+                    System.out.println("Message reçu de receiver contenant ack " + ackSeqNum);
                 }
 
             } catch (SocketException e) {
