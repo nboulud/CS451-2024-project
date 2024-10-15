@@ -11,11 +11,13 @@ public class Sender extends Thread {
     private final int myId;
     private final Logger logger;
 
-    // Timeout in milliseconds
-    private static final int TIMEOUT = 100;
 
-    // Map to track unacknowledged messages (sequence number -> timestamp)
+    private static final int TIMEOUT = 100;
+ 
     private final ConcurrentHashMap<Integer, Long> unacknowledgedMessages;
+
+    private final Set<Integer> loggedMessages = ConcurrentHashMap.newKeySet();
+
 
     public Sender(DatagramSocket socket, Host receiverHost, int numMessages, int myId, Logger logger) {
         this.socket = socket;
@@ -77,7 +79,10 @@ public class Sender extends Thread {
 
             socket.send(packet);
             System.out.println("Message envoyé par " + myId + "contenant  " + seqNum);
-
+            if(!loggedMessages.contains(seqNum)){
+                logger.logSend(seqNum);
+                loggedMessages.add(seqNum);
+            }
 
         } catch (IOException e) {
             e.printStackTrace();
