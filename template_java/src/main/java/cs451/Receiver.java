@@ -49,26 +49,27 @@ public class Receiver extends Thread {
                 System.out.println("Message reçu de " + senderId + " contenant  " + seqNum);
 
                 // Check for duplicates
-                if (!deliveredMessages.contains(messageKey)) {
-                    // Deliver the message
-                    deliveredMessages.add(messageKey);
+                synchronized (deliveredMessages) {
+                    if (!deliveredMessages.contains(messageKey)) {
+                        // Deliver the message
+                        deliveredMessages.add(messageKey);
 
-                    // Log the delivery event
-                    logger.logDeliver(senderId, seqNum);
+                        // Log the delivery event
+                        logger.logDeliver(senderId, seqNum);
 
-                    String ackMessage = "ACK:" + seqNum;
-                    byte[] ackBuf = ackMessage.getBytes();
+                        String ackMessage = "ACK:" + seqNum;
+                        byte[] ackBuf = ackMessage.getBytes();
 
-                    InetAddress senderAddress = packet.getAddress();
-                    int senderPort = packet.getPort();
+                        InetAddress senderAddress = packet.getAddress();
+                        int senderPort = packet.getPort();
 
-                    DatagramPacket ackPacket = new DatagramPacket(ackBuf, ackBuf.length, senderAddress, senderPort);
-                    socket.send(ackPacket);
-                    System.out.println("Ack " + seqNum + " envoyé à " + senderId);
+                        DatagramPacket ackPacket = new DatagramPacket(ackBuf, ackBuf.length, senderAddress, senderPort);
+                        socket.send(ackPacket);
+                        System.out.println("Ack " + seqNum + " envoyé à " + senderId);
 
+                    }
+                    // Else, duplicate message; ignore
                 }
-                // Else, duplicate message; ignore
-                
 
                 
             } catch (SocketException e) {
