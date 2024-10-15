@@ -9,7 +9,7 @@ public class Receiver extends Thread {
     private final DatagramSocket socket;
     private final int myId;
     private final Logger logger;
-    import java.util.concurrent.ConcurrentHashMap;
+    
 
 
     // To track delivered messages (senderId:sequenceNumber)
@@ -20,7 +20,7 @@ public class Receiver extends Thread {
         this.socket = socket;
         this.myId = myId;
         this.logger = logger;
-        this.deliveredMessages = ConcurrentHashMap.newKeySet();
+        this.deliveredMessages = new HashSet<>();
         
     }
 
@@ -49,8 +49,7 @@ public class Receiver extends Thread {
                 System.out.println("Message reçu de " + senderId + " contenant  " + seqNum);
 
                 // Check for duplicates
-                
-                if (deliveredMessages.add(messageKey)) {
+                if (!deliveredMessages.contains(messageKey)) {
                     // Deliver the message
                     deliveredMessages.add(messageKey);
 
