@@ -2,6 +2,9 @@ package cs451;
 
 import java.io.IOException;
 import java.net.*;
+import java.util.Collections;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.Set;
@@ -12,22 +15,23 @@ public class Sender extends Thread {
     private final int numMessages;
     private final int myId;
     private final Logger logger;
+    private final int windowSize;
 
 
     private static final int TIMEOUT = 100;
- 
-    private final ConcurrentHashMap<Integer, Long> unacknowledgedMessages;
-
+    private final List<Integer> window = Collections.synchronizedList(new LinkedList<>());
+    private final ConcurrentHashMap<Integer, Long> sentMessages = new ConcurrentHashMap<>();
+    private int nextSeqNum = 1; // Next sequence number to send
     private final Set<Integer> loggedMessages = ConcurrentHashMap.newKeySet();
 
 
-    public Sender(DatagramSocket socket, Host receiverHost, int numMessages, int myId, Logger logger) {
+    public Sender(DatagramSocket socket, Host receiverHost, int numMessages, int myId, Logger logger, int windowSize) {
         this.socket = socket;
         this.receiverHost = receiverHost;
         this.numMessages = numMessages;
         this.myId = myId;
         this.logger = logger;
-        this.unacknowledgedMessages = new ConcurrentHashMap<>();
+        this.windowSize = windowSize;
     }
 
     @Override
@@ -36,22 +40,26 @@ public class Sender extends Thread {
         Thread ackListener = new Thread(this::listenForAcks);
         ackListener.start();
 
-        // Send messages
-        for (int seqNum = 1; seqNum <= numMessages; seqNum++) {
-            sendMessage(seqNum);
-            unacknowledgedMessages.put(seqNum, System.currentTimeMillis());
+        synchronized (window) {
+            while (window.size() < windowSize && nextSeqNum <= numMessages) {
+                window.add(nextSeqNum);
+                sendMessage(nextSeqNum);
+                sentMessages.put(nextSeqNum, System.currentTimeMillis());
+                nextSeqNum++;
+            }
         }
 
-        // Retransmission loop
-        while (!unacknowledgedMessages.isEmpty() && !Thread.currentThread().isInterrupted()) {
-            long currentTime = System.currentTimeMillis();
+        while (!Thread.currentThread().isInterrupted() && (window.size() > 0 || nextSeqNum <= numMessages)) {
+            // Retransmit timed-out messages
+            retransmitUnacknowledgedMessages();
 
-            for (Integer seqNum : unacknowledgedMessages.keySet()) {
-                long lastSentTime = unacknowledgedMessages.get(seqNum);
-
-                if (currentTime - lastSentTime >= TIMEOUT) {
-                    sendMessage(seqNum);
-                    unacknowledgedMessages.put(seqNum, currentTime);
+            // Fill the window if possible
+            synchronized (window) {
+                while (window.size() < windowSize && nextSeqNum <= numMessages) {
+                    window.add(nextSeqNum);
+                    sendMessage(nextSeqNum);
+                    sentMessages.put(nextSeqNum, System.currentTimeMillis());
+                    nextSeqNum++;
                 }
             }
 
@@ -61,6 +69,7 @@ public class Sender extends Thread {
                 Thread.currentThread().interrupt();
             }
         }
+
         System.out.println("All messages acknowledged. Sender terminating.");
 
         // Clean up
@@ -80,7 +89,7 @@ public class Sender extends Thread {
             DatagramPacket packet = new DatagramPacket(buf, buf.length, receiverAddress, receiverHost.getPort());
 
             socket.send(packet);
-            System.out.println("Message envoyé par " + myId + "contenant  " + seqNum);
+            System.out.println("Message envoyé par " + myId + " contenant  " + seqNum);
             if(!loggedMessages.contains(seqNum)){
                 logger.logSend(seqNum);
                 loggedMessages.add(seqNum);
@@ -90,6 +99,20 @@ public class Sender extends Thread {
             e.printStackTrace();
         }
     }
+
+    private void retransmitUnacknowledgedMessages() {
+        long currentTime = System.currentTimeMillis();
+        synchronized (window) {
+            for (Integer seqNum : window) {
+                Long lastSentTime = sentMessages.get(seqNum);
+                if (lastSentTime != null && currentTime - lastSentTime >= TIMEOUT) {
+                    sendMessage(seqNum);
+                    sentMessages.put(seqNum, currentTime);
+                }
+            }
+        }
+    }
+
 
     private void listenForAcks() {
         byte[] buf = new byte[256];
@@ -103,8 +126,22 @@ public class Sender extends Thread {
 
                 if (received.startsWith("ACK:")) {
                     int ackSeqNum = Integer.parseInt(received.substring(4));
-                    unacknowledgedMessages.remove(ackSeqNum);
                     System.out.println("Message reçu de receiver contenant ack " + ackSeqNum);
+                    
+                    synchronized (window) {
+                        if (window.contains(ackSeqNum)) {
+                            window.remove((Integer) ackSeqNum); // Remove the sequence number from the window
+                            sentMessages.remove(ackSeqNum);
+
+                            // Add the next sequence number to the window if there are more messages
+                            if (nextSeqNum <= numMessages) {
+                                window.add(nextSeqNum);
+                                sendMessage(nextSeqNum);
+                                sentMessages.put(nextSeqNum, System.currentTimeMillis());
+                                nextSeqNum++;
+                            }
+                        }
+                    }
                 }
 
             } catch (SocketException e) {
