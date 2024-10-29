@@ -1,0 +1,12 @@
+passe par main
+Immediately stopping network packet processing.
+Writing output.
+My PID: 100327
+
+From a new terminal type `kill -SIGINT 100327` or `kill -SIGTERM 100327` to stop processing packets
+
+My ID: 4
+
+List of resolved hosts is:
+==========================
+1
