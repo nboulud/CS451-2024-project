@@ -62,7 +62,7 @@ public class Main {
 
         int m = 0;
         int receiverId = 0;
-        int windowSize = 25000;
+        int windowSize = 3000;
 
         try (BufferedReader br = new BufferedReader(new FileReader(parser.config()))) {
             String line = br.readLine();

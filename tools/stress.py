@@ -204,7 +204,7 @@ class StressTest:
                         else:
                             continue
 
-                    time.sleep(float(random.randint(50, 500)) / 1000.0)
+                    time.sleep(float(random.randint(50, 500)) / 100.0)
                     info.handle.send_signal(ProcessInfo.stateToSignal(op))
                     info.state = op
                     successfulAttempts += 1
@@ -493,9 +493,9 @@ if __name__ == "__main__":
         "concurrency": 8,  # How many threads are interferring with the running processes
         "attempts": 8,  # How many interferring attempts each threads does
         "attemptsDistribution": {  # Probability with which an interferring thread will
-            "STOP": 0.48,  # select an interferring action (make sure they add up to 1)
-            "CONT": 0.48,
-            "TERM": 0.04,
+            "STOP": 0.5,  # select an interferring action (make sure they add up to 1)
+            "CONT": 0.5,
+            "TERM": 0.00,
         },
     }
 
