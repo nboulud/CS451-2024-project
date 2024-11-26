@@ -6,11 +6,11 @@ readonly BUILD_PATH="build.sh"
 readonly TC_PATH="../tools/tc.py"
 readonly OUTPUT_PATH="../example/output/"
 readonly HOSTS_PATH="../example/hosts"
-readonly PERFECT_LINKS_PATH="../example/configs/perfect-links.config"
+readonly PERFECT_LINKS_PATH="../example/configs/fifo-broadcast.config"
 readonly THROUGHPUT_PATH="src/main/java/cs451/tests/compute_throughput.py"
 readonly CORRECTNESS_PASS="src/main/java/cs451/tests/verify_correctness.py"
 
-readonly EXEC_TIME=60
+readonly EXEC_TIME=10
 
 # Build the application
 echo ""
@@ -20,11 +20,11 @@ echo "Build finished!"
 sleep 5
 
 # Run the network setup script
-echo ""
-echo "Running network setup script..."
-gnome-terminal -- bash -c "cd $BASE_PATH; python $TC_PATH; exec bash"
-echo "Network setup script finished!"
-sleep 5
+#echo ""
+#echo "Running network setup script..."
+#gnome-terminal -- bash -c "cd $BASE_PATH; python $TC_PATH; exec bash"
+#echo "Network setup script finished!"
+#sleep 5
 
 # Start all processes (Correctness/Performance Test)
 echo ""
@@ -52,10 +52,10 @@ echo "Waiting for logs to be written..."
 sleep 10  # 10 seconds
 
 # Kill network setup script
-echo ""
-echo "Stopping network setup script..."
-pkill -f tc.py  # Kills all processes related to `tc.py`
-echo "Stopped network setup script!"
+#echo ""
+#echo "Stopping network setup script..."
+#pkill -f tc.py  # Kills all processes related to `tc.py`
+#echo "Stopped network setup script!"
 
 # Verify the correctness of the test
 echo ""

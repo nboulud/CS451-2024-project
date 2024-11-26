@@ -8,6 +8,7 @@ import java.nio.file.Paths;
 
 public class Logger {
     private BufferedWriter writer;
+    private final Object lock = new Object();
 
     public Logger(String outputPath) {
         try {
@@ -20,18 +21,22 @@ public class Logger {
     }
 
     public synchronized void logSend(int sequenceNumber) {
-        try {
-            writer.write("b " + sequenceNumber + "\n");
-        } catch (IOException e) {
-            e.printStackTrace();
+        synchronized(lock){
+            try {
+                writer.write("b " + sequenceNumber + "\n");
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
         }
     }
 
     public synchronized void logDeliver(int senderId, int sequenceNumber) {
-        try {
-            writer.write("d " + senderId + " " + sequenceNumber + "\n");
-        } catch (IOException e) {
-            e.printStackTrace();
+        synchronized(lock){
+            try {
+                writer.write("d " + senderId + " " + sequenceNumber + "\n");
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
         }
     }
 

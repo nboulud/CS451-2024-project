@@ -204,7 +204,7 @@ class StressTest:
                         else:
                             continue
 
-                    time.sleep(float(random.randint(50, 500)) / 100.0)
+                    time.sleep(float(random.randint(50, 500)) / 300.0)
                     info.handle.send_signal(ProcessInfo.stateToSignal(op))
                     info.state = op
                     successfulAttempts += 1
