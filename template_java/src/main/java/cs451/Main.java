@@ -16,9 +16,9 @@ public class Main {
         // Immediately stop network packet processing
         System.out.println("Immediately stopping network packet processing.");
 
-        if (broadcaster != null) {
+        /*if (broadcaster != null) {
             broadcaster.interrupt();
-        }
+        }*/
 
         // Close socket
         if (socket != null && !socket.isClosed()) {
@@ -71,19 +71,24 @@ public class Main {
         for (Host host : hostsList) {
             hosts.put(host.getId(), host);
         }
-
+        Broadcaster broadcaster = null;
         // Initialize PerfectLink
-        PerfectLink perfectLink = new PerfectLink(socket, parser.myId(), hosts, logger);
+        PerfectLink perfectLink = new PerfectLink(socket, parser.myId(), hosts, logger, broadcaster);
 
         // Initialize broadcaster
-        broadcaster = new Broadcaster(perfectLink, hostsList, parser.myId(), logger, numMessages);
-        broadcaster.start();
+        //broadcaster = new Broadcaster(perfectLink, hostsList, parser.myId(), logger, numMessages);
+        perfectLink.start();
 
-        // Keep the main thread alive
-        try {
-            broadcaster.join();
-        } catch (InterruptedException e) {
-            // Thread interrupted
+        int myId = parser.myId(); 
+        Host myHost = parser.hosts().get(myId - 1);
+        Host receiverHost = parser.hosts().get(0);
+        
+        if (myHost.getId() != 1) {
+            for (int i = 1; i <= numMessages; i++) {
+                Message message = new Message(i, myId, myId, 1, false, false, true);
+                //System.out.println(myId + "sent message : "+ message);
+                perfectLink.send(message);
+            }
         }
     }
 }
