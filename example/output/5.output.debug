@@ -1,0 +1,56 @@
+MapMessageWithoutAck: 0
+
+PerfectLink sendMessage() : envoie : 8:5:5:1:5:2:5:3:5:4:5:5:5:6:5:7:5:8 au port : 11001
+
+MapMessageWithoutAck: 1
+
+PerfectLink sendMessage() : envoie : 2:5:5:9:5:10 au port : 11001
+
+MapMessageWithoutAck: 2
+
+PerfectLink window Update () : Garde la taille de window 3000.0
+
+PerfectLink listen() : recoit paquet port : 11001 contenu : ACK:18:5:5:1:5:2:5:3:5:4:5:5:5:6:5:7:5:8
+
+PerfectLink listen() : recoit paquet port : 11001 contenu : ACK:12:5:5:9:5:10
+
+PerfectLink window Update () : Augmente taille de window : 6000.0
+
+PerfectLink window Update () : Garde la taille de window 6000.0
+
+PerfectLink sendMessage() : doit renvoyer le packet car pas de ack reçu 8:5:5:1:5:2:5:3:5:4:5:5:5:6:5:7:5:8
+
+PerfectLink sendMessage() : envoie : 8:5:5:1:5:2:5:3:5:4:5:5:5:6:5:7:5:8 au port : 11001
+
+PerfectLink sendMessage() : doit renvoyer le packet car pas de ack reçu 2:5:5:9:5:10
+
+PerfectLink sendMessage() : envoie : 2:5:5:9:5:10 au port : 11001
+
+PerfectLink window Update () : Baisse taille de window : 3000.0
+
+PerfectLink window Update () : Garde la taille de window 3000.0
+
+PerfectLink window Update () : Garde la taille de window 3000.0
+
+PerfectLink sendMessage() : doit renvoyer le packet car pas de ack reçu 8:5:5:1:5:2:5:3:5:4:5:5:5:6:5:7:5:8
+
+PerfectLink sendMessage() : envoie : 8:5:5:1:5:2:5:3:5:4:5:5:5:6:5:7:5:8 au port : 11001
+
+PerfectLink sendMessage() : doit renvoyer le packet car pas de ack reçu 2:5:5:9:5:10
+
+PerfectLink sendMessage() : envoie : 2:5:5:9:5:10 au port : 11001
+
+PerfectLink window Update () : Baisse taille de window : 3000.0
+
+PerfectLink window Update () : Garde la taille de window 3000.0
+
+PerfectLink window Update () : Garde la taille de window 3000.0
+
+PerfectLink sendMessage() : doit renvoyer le packet car pas de ack reçu 8:5:5:1:5:2:5:3:5:4:5:5:5:6:5:7:5:8
+
+PerfectLink sendMessage() : envoie : 8:5:5:1:5:2:5:3:5:4:5:5:5:6:5:7:5:8 au port : 11001
+
+PerfectLink sendMessage() : doit renvoyer le packet car pas de ack reçu 2:5:5:9:5:10
+
+PerfectLink sendMessage() : envoie : 2:5:5:9:5:10 au port : 11001
+

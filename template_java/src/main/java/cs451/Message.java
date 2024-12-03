@@ -8,18 +8,14 @@ public class Message {
     public final int creatorId;
     public final int senderId;
     public final int destinationId;
-    public final boolean is_ack;
-    public final boolean is_ack_urb;
-    public final boolean is_data;
+    public final int nature;
     
-    public Message(int seqNum, int creatorId, int senderId, int destinationId, boolean is_ack, boolean is_ack_urb, boolean is_data){
+    public Message(int seqNum, int creatorId, int senderId, int destinationId, int nature){
         this.seqNum = seqNum;
         this.creatorId = creatorId;
         this.senderId = senderId;
         this.destinationId =destinationId;
-        this.is_ack = is_ack;
-        this.is_ack_urb = is_ack_urb;
-        this.is_data = is_data;
+        this.nature = nature;
     }
 
     @Override
@@ -32,17 +28,13 @@ public class Message {
         }
         Message message = (Message) obj;
         return seqNum == message.seqNum &&
-               creatorId == message.creatorId &&
-               senderId == message.senderId &&
-               destinationId == message.destinationId &&
-               is_ack == message.is_ack &&
-               is_ack_urb == message.is_ack_urb &&
-               is_data == message.is_data;
+               creatorId == message.creatorId;
+               
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(seqNum, creatorId, senderId, destinationId, is_ack, is_ack_urb, is_data);
+        return Objects.hash(seqNum, creatorId);
     }
 
     @Override
@@ -50,11 +42,6 @@ public class Message {
         return "Message{" +
                "seqNum=" + seqNum +
                ", creatorId=" + creatorId +
-               ", senderId=" + senderId +
-               ", destinationId=" + destinationId +
-               ", is_ack=" + is_ack +
-               ", is_ack_urb=" + is_ack_urb +
-               ", is_data=" + is_data +
                '}';
     }
 }

@@ -4,7 +4,7 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class Broadcaster extends Thread {
-    private final PerfectLink perfectLink;
+    private PerfectLink perfectLink;
     private final List<Host> hosts;
     private final Map<Integer, Host> hostMap;
     private final int myId;
@@ -15,22 +15,23 @@ public class Broadcaster extends Thread {
     private int nextSeqNum = 1; // Next sequence number to send
 
     // URB data structures
-    private final Set<String> receivedMessages = ConcurrentHashMap.newKeySet(); // messageId
-    private final Set<String> deliveredMessages = ConcurrentHashMap.newKeySet(); // messageId
-    private final ConcurrentHashMap<String, Set<Integer>> ackCounts = new ConcurrentHashMap<>(); // messageId -> set of processes that acknowledged
+    private final Set<Message> receivedMessages = ConcurrentHashMap.newKeySet(); // messageId
+    private final Set<Message> deliveredMessages = ConcurrentHashMap.newKeySet(); // messageId
+    private final ConcurrentHashMap<Message, Set<Integer>> ackCounts = new ConcurrentHashMap<>(); // messageId -> set of processes that acknowledged
     private final int N; // Total number of processes
 
     // FIFO data structures
     private final Map<Integer, Integer> nextExpectedSeq = new ConcurrentHashMap<>(); // senderId -> next expected seqNum
-    private final Map<Integer, Map<Integer, String>> pendingMessages = new ConcurrentHashMap<>(); // senderId -> (seqNum -> message)
+    private final Map<Integer, Map<Integer, Message>> pendingMessages = new ConcurrentHashMap<>(); // senderId -> (seqNum -> message)
 
     public Broadcaster(PerfectLink perfectLink, List<Host> hosts, int myId, Logger logger, int numMessages) {
-        this.perfectLink = perfectLink;
         this.hosts = hosts;
         this.myId = myId;
         this.logger = logger;
         this.numMessages = numMessages;
         this.N = hosts.size();
+        this.perfectLink = perfectLink;
+        
 
         // Create a map from host ID to Host object for easy access
         hostMap = new HashMap<>();
@@ -45,15 +46,23 @@ public class Broadcaster extends Thread {
         }
     }
 
+    public void  SetPerfectLink(PerfectLink perfectLink){
+        this.perfectLink =perfectLink;
+    }
+
     @Override
     public void run() {
         // Start PerfectLink listener
         perfectLink.start();
 
+        
         // Broadcast messages
         while (nextSeqNum <= numMessages) {
-            String message = Integer.toString(nextSeqNum);;
-            urbBroadcast(message);
+            for (Host host : hosts) {
+                Message msg = new Message(nextSeqNum, myId, myId, host.getId(), 2);
+                logger.logDebug("message broadcast 1ere fois " + msg.creatorId + ":" + msg.seqNum + " a " + msg.destinationId);
+                urbBroadcast(msg);
+            }
             nextSeqNum++;
 
             // Log the broadcast
@@ -61,116 +70,101 @@ public class Broadcaster extends Thread {
         }
     }
 
-    private void urbBroadcast(String message) {
+    private void urbBroadcast(Message message) {
         // Send the message to all hosts using Perfect Links
-        for (Host host : hosts) {
-            if (host.getId() == myId){
-                urbDeliver(message);
-            }else{
-                Message msg = new Message(nextSeqNum, MAX_PRIORITY, N, N, isInterrupted(), isDaemon(), isAlive());
-                perfectLink.send(msg);
-            }
-            
+        if (message.destinationId == myId){
+            urbDeliver(message);
+        }else{
+            perfectLink.send(message);
         }
     }
 
 
 
-    public void urbDeliver(String message) {
-        // Message format: senderId:seqNum
-        String[] parts = message.split(":");
-        if (parts.length != 2) {
-            return; // Invalid message format
-        }
-        int senderId = Integer.parseInt(parts[0]);
-        int seqNum = Integer.parseInt(parts[1]);
-
-        String messageId = senderId + ":" + seqNum;
+    public void urbDeliver(Message message) {
 
         // If first time seeing the message
-        if (!receivedMessages.contains(messageId)) {
-            receivedMessages.add(messageId);
+
+        logger.logDebug("message reçus " + message.creatorId + ":" + message.seqNum + " de la part de " + message.senderId);
+
+        if (!receivedMessages.contains(message)) {
+            receivedMessages.add(message);
 
             // Initialize acknowledgment set
-            ackCounts.put(messageId, ConcurrentHashMap.newKeySet());
+            ackCounts.put(message, ConcurrentHashMap.newKeySet());
 
             // Add self to acknowledgment set
-            ackCounts.get(messageId).add(myId);
+            ackCounts.get(message).add(myId);
+            ackCounts.get(message).add(message.senderId);
 
             // Send acknowledgment to everybody
-            String ackMessageId = senderId + ":" + seqNum;
-            Message msg = new Message(seqNum, seqNum, senderId, seqNum, isInterrupted(), isDaemon(), isAlive());
             for (Host host : hosts) {
-                perfectLink.sendAckURB(msg);
+                //System.out.println("hots.getid " + host.getId());
+                //System.out.println("myId : " + myId + " senderId : " + message.senderId + " creatorId : "+ message.creatorId );
+                if (host.getId() != myId && host.getId() != message.senderId && host.getId() != message.creatorId 
+                    && message.creatorId != myId && !deliveredMessages.contains(message)){
+                    Message NewMessage = new Message(message.seqNum, message.creatorId, myId, host.getId(), 2);
+                    logger.logDebug("message broadcast une fois reçu " + NewMessage.creatorId + ":" + NewMessage.seqNum + " a " + NewMessage.destinationId);
+                    urbBroadcast(NewMessage);
+                }
+                if (host.getId() != myId) {
+                    Message msg_ack = new Message(message.seqNum, message.creatorId, myId, host.getId(), 1);
+                    perfectLink.sendAckURB(msg_ack);
+                }
             }
             
-            // Rebroadcast the message
-            urbBroadcast(message);
         }
 
         // Attempt to deliver the message
-        checkAndDeliver(messageId, senderId, seqNum);
-        //System.out.println("Process " + myId + " urbDeliver message from " + senderId + ": " + message);
+        checkAndDeliver(message);
     }
 
-    public void handleAck(String ackMessage) {
-        // ACK message format: "ACK:ackSenderId:originalSenderId:seqNum"
-        String[] parts = ackMessage.split(":");
-        if (parts.length != 4) {
-            return; // Invalid ACK message format
-        }
-        int ackSenderId = Integer.parseInt(parts[1]);
-        int originalSenderId = Integer.parseInt(parts[2]);
-        int seqNum = Integer.parseInt(parts[3]);
-        String messageId = originalSenderId + ":" + seqNum;
-
-        //System.out.println(messageId + " avant de mettre a jour : " + ackCounts.get(messageId).size());
-
+    public void handleAck(Message message_ack) {
+        
         // Add the acknowledger (destId) to the acknowledgment set
-        ackCounts.computeIfAbsent(messageId, k -> ConcurrentHashMap.newKeySet()).add(ackSenderId);
+        Message message_data = new Message(message_ack.seqNum, message_ack.creatorId, myId, message_ack.senderId, 2);
+
+        logger.logDebug("Reçois ACK_URB message " + message_data.creatorId + ":" + message_data.seqNum + " de la part de "+ message_ack.senderId);
+        ackCounts.computeIfAbsent(message_data, k -> ConcurrentHashMap.newKeySet()).add(message_data.destinationId);
         
         // Attempt to deliver the message
-        checkAndDeliver(messageId, originalSenderId, seqNum);
-        //System.out.println("Process " + myId + " received ACK from " + ackSenderId + " for message " + messageId);
-
+        checkAndDeliver(message_data);
     }
     
 
-    private void checkAndDeliver(String messageId, int senderId, int seqNum) {
-        Set<Integer> acks = ackCounts.get(messageId);
-        if(senderId != myId){
-            System.out.println("le nombre de ack : " + ackCounts.get(messageId).size());
-        }
-        //System.out.println("Check and deliver " + messageId + " alors " + acks.size());
-        if (acks != null && acks.size() > N / 2 || senderId==myId ) {
+    private void checkAndDeliver(Message message) {
+        Set<Integer> acks = ackCounts.get(message);
+        logger.logDebug("Check and deliver " + message.creatorId + ":"+ message.seqNum + " de la part de " + message.senderId +" alors " + acks.size());
+        if (acks != null && acks.size() >= Math.ceil(((double)N) / 2)) {
             // Deliver the message if not already delivered
-            if (!deliveredMessages.contains(messageId)) {
-                deliveredMessages.add(messageId);
+            if (!deliveredMessages.contains(message)) {
+                deliveredMessages.add(message);
+
+                logger.logDebug("Message deliver (pas fifo) : " + message.creatorId + ":" + message.seqNum);
 
                 // FIFO delivery check
-                System.out.println("delivered message : " + messageId + " by " + myId);
-                logger.logDeliver(senderId, seqNum);
+                fifoDeliver(message);
             }
         }
     }
 
-   /*  private void fifoDeliver(int senderId, int seqNum) {
+    private void fifoDeliver(Message message) {
         // Add message to pending buffer
-        pendingMessages.get(senderId).put(seqNum, senderId + ":" + seqNum);
+        pendingMessages.get(message.creatorId).put(message.seqNum, message);
 
         // Try to deliver messages in order
-        int nextSeq = nextExpectedSeq.get(senderId);
+        int nextSeq = nextExpectedSeq.get(message.creatorId);
 
-        while (pendingMessages.get(senderId).containsKey(nextSeq)) {
-            String messageKey = senderId + ":" + nextSeq;
-            pendingMessages.get(senderId).remove(nextSeq);
+        while (pendingMessages.get(message.creatorId).containsKey(nextSeq)) {
+            pendingMessages.get(message.creatorId).remove(nextSeq);
 
             // Deliver the message
-            logger.logDeliver(senderId, nextSeq);
+            //logger.logDeliver(message.creatorId, nextSeq);
+            logger.logDebug("Message deliver (FIFO) : " + message.creatorId + ":" + message.seqNum);
 
             // Increment expected sequence number
             nextSeq++;
-            nextExpectedSeq.put(senderId, nextSeq);
+            nextExpectedSeq.put(message.creatorId, nextSeq);
         }
-    }*/
+    }
 }

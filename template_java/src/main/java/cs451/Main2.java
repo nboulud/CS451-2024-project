@@ -7,7 +7,7 @@ import java.io.IOException;
 import java.net.*;
 import java.util.*;
 
-public class Main {
+public class Main2 {
 
     private static Logger logger;
     private static Broadcaster broadcaster;
@@ -35,7 +35,7 @@ public class Main {
     }
 
     private static void initSignalHandlers() {
-        Runtime.getRuntime().addShutdownHook(new Thread(Main::handleSignal));
+        Runtime.getRuntime().addShutdownHook(new Thread(Main2::handleSignal));
     }
 
     public static void main(String[] args) throws InterruptedException {
@@ -82,19 +82,16 @@ public class Main {
         // Initialize PerfectLink
         perfectLink = new PerfectLink(socket, parser.myId(), hosts, logger, broadcaster);
 
-        int myId = parser.myId();               
+        broadcaster.SetPerfectLink(perfectLink);
+        System.out.println("passe par la main");
+        broadcaster.start();
 
-        Host myHost = parser.hosts().get(myId - 1);
-        perfectLink.start();
 
-        Host receiverHost = parser.hosts().get(0);
-        
-        if (myHost.getId() != 1) {
-            for (int i = 1; i <= numMessages; i++) {
-                Message msg = new Message(i, myId, myId, receiverHost.getId(), 2);
-                perfectLink.send(msg);
-            }
+        // Keep the main thread alive
+        try {
+            broadcaster.join();
+        } catch (InterruptedException e) {
+            // Thread interrupted
         }
-
     }
 }

@@ -61,7 +61,7 @@ public class Receiver extends Thread {
                             deliveredMessages.add(messageKey);
 
                             // Log the delivery event
-                            logger.logDeliver(senderId, seqNum);
+                            //logger.logDeliver(senderId, seqNum);
 
                             // Add seqNum to acknowledgments
                             ackSeqNums.add(seqNum);

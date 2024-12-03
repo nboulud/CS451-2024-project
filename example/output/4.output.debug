@@ -1,0 +1,56 @@
+MapMessageWithoutAck: 0
+
+PerfectLink sendMessage() : envoie : 8:4:4:1:4:2:4:3:4:4:4:5:4:6:4:7:4:8 au port : 11001
+
+MapMessageWithoutAck: 1
+
+PerfectLink sendMessage() : envoie : 2:4:4:9:4:10 au port : 11001
+
+MapMessageWithoutAck: 2
+
+PerfectLink window Update () : Garde la taille de window 3000.0
+
+PerfectLink listen() : recoit paquet port : 11001 contenu : ACK:12:4:4:9:4:10
+
+PerfectLink window Update () : Augmente taille de window : 6000.0
+
+PerfectLink window Update () : Garde la taille de window 6000.0
+
+PerfectLink sendMessage() : doit renvoyer le packet car pas de ack reçu 8:4:4:1:4:2:4:3:4:4:4:5:4:6:4:7:4:8
+
+PerfectLink sendMessage() : envoie : 8:4:4:1:4:2:4:3:4:4:4:5:4:6:4:7:4:8 au port : 11001
+
+PerfectLink sendMessage() : doit renvoyer le packet car pas de ack reçu 2:4:4:9:4:10
+
+PerfectLink sendMessage() : envoie : 2:4:4:9:4:10 au port : 11001
+
+PerfectLink window Update () : Baisse taille de window : 3000.0
+
+PerfectLink window Update () : Garde la taille de window 3000.0
+
+PerfectLink window Update () : Garde la taille de window 3000.0
+
+PerfectLink sendMessage() : doit renvoyer le packet car pas de ack reçu 8:4:4:1:4:2:4:3:4:4:4:5:4:6:4:7:4:8
+
+PerfectLink sendMessage() : envoie : 8:4:4:1:4:2:4:3:4:4:4:5:4:6:4:7:4:8 au port : 11001
+
+PerfectLink sendMessage() : doit renvoyer le packet car pas de ack reçu 2:4:4:9:4:10
+
+PerfectLink sendMessage() : envoie : 2:4:4:9:4:10 au port : 11001
+
+PerfectLink window Update () : Baisse taille de window : 3000.0
+
+PerfectLink window Update () : Garde la taille de window 3000.0
+
+PerfectLink window Update () : Garde la taille de window 3000.0
+
+PerfectLink sendMessage() : doit renvoyer le packet car pas de ack reçu 8:4:4:1:4:2:4:3:4:4:4:5:4:6:4:7:4:8
+
+PerfectLink sendMessage() : envoie : 8:4:4:1:4:2:4:3:4:4:4:5:4:6:4:7:4:8 au port : 11001
+
+PerfectLink sendMessage() : doit renvoyer le packet car pas de ack reçu 2:4:4:9:4:10
+
+PerfectLink sendMessage() : envoie : 2:4:4:9:4:10 au port : 11001
+
+PerfectLink window Update () : Baisse taille de window : 3000.0
+

@@ -5,6 +5,8 @@ import java.net.*;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.AbstractMap.SimpleEntry;
+
 
 import cs451.Broadcaster;
 
@@ -12,10 +14,10 @@ public class PerfectLink {
     private final DatagramSocket socket;
     private final int myId;
     private final Logger logger;
-    private final int QueueSizeMax = 10000;
+    private final int QueueSizeMax = 750;
     private double windowSize = 3000;
     private int MIN_WINDOW_SIZE = 3000;
-    private int MAX_WINDOW_SIZE = 30000;
+    private int MAX_WINDOW_SIZE = 10000;
     private ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
 
 
@@ -24,14 +26,14 @@ public class PerfectLink {
     private final Map<Integer, Host> hosts;
 
     // Sender-side data structures
-    private final Set<Message> MapMessageWithoutAck = ConcurrentHashMap.newKeySet();
+    private final Set<Packet> MapMessageWithoutAck = ConcurrentHashMap.newKeySet();
     ;
-    private final int RETRANSMIT_TIMEOUT = 1000;
-    private final int WINDOW_TIMEOUT = 10; 
+    private final int RETRANSMIT_TIMEOUT = 3000;
+    private final int WINDOW_TIMEOUT = 1000; 
     
 
     // Receiver-side data structures
-    private final Set<Message> deliveredMessages = ConcurrentHashMap.newKeySet(); // messageId
+    private final Set<Map.Entry<Integer, Integer>> deliveredMessages = ConcurrentHashMap.newKeySet(); // messageId
 
     // Listener threads
     private Thread listenerThread;
@@ -42,6 +44,10 @@ public class PerfectLink {
     private AtomicInteger NumberOfTimeOut = new AtomicInteger(0);
 
     private final Broadcaster broadcaster;
+
+    private boolean alreadyResend;
+
+    
 
 
     public PerfectLink(DatagramSocket socket, int myId, Map<Integer, Host> hosts, Logger logger, Broadcaster broadcaster) {
@@ -93,7 +99,7 @@ public class PerfectLink {
             try {
                 socket.receive(packet);
                 String received = new String(packet.getData(), 0, packet.getLength());
-
+                logger.logDebug("PerfectLink listen() : recoit paquet port : " + packet.getPort() + " contenu : " + received);
                 // Handle the received message
                 handleReceivedMessage(received, packet.getAddress(), packet.getPort());
             } catch (SocketException e) {
@@ -106,8 +112,29 @@ public class PerfectLink {
     }
 
     private void handleReceivedMessage(String received, InetAddress senderAddress, int senderPort) {
-        //System.out.println("Process " + myId + " received message: " + received);
+        System.out.println("Recois");
         if (received.startsWith("ACK:")) {
+            String[] parts = received.split(":");
+            if (parts.length < 4) {
+                // Invalid ACK message format
+                return;
+            }
+            
+            int NumberOfMessage = Integer.parseInt(parts[2]);
+            int ackSenderId = Integer.parseInt(parts[1]);
+            Packet packet = new Packet(new ArrayList<>(), ackSenderId);
+            int max = NumberOfMessage*2+4;
+            for(int i = 4; i<max; i+=2){
+                int creator = Integer.parseInt(parts[i]);
+                int seqNum = Integer.parseInt(parts[i+1]);
+                NumberOfAck.incrementAndGet();
+                packet.messagesPairs.add(new AbstractMap.SimpleEntry<>(creator, seqNum));
+            }
+            MapMessageWithoutAck.remove(packet);
+
+
+        } else if(received.startsWith("ACK_URB:")) {
+
             String[] parts = received.split(":");
             if (parts.length != 4) {
                 // Invalid ACK message format
@@ -117,21 +144,9 @@ public class PerfectLink {
             int CreatorId = Integer.parseInt(parts[2]);
             int seqNum = Integer.parseInt(parts[3]);
 
-            System.err.println("Received ACK for the message " + CreatorId + " : "+ seqNum);
+            Message message_ackurb = new Message(seqNum, CreatorId, ackSenderId, myId, 1);
 
-            // Construct messageId as stored in sendQueue
-            Message msg = new Message(seqNum, CreatorId, myId, ackSenderId, false, false, true);
-
-            NumberOfAck.incrementAndGet();
-
-           // System.out.println("Reçu le ack du message : " +seqNum +":" +CreatorId + " envoyé par " + myId + " pour "+ ackSenderId);
-
-            // Remove the acknowledged message from sendQueue
-            MapMessageWithoutAck.remove(msg);
-
-        } else if(received.startsWith("ACK_URB:")) {
-
-            broadcaster.handleAck(received);
+            //broadcaster.handleAck(message_ackurb);
 
         } else {
 
@@ -141,27 +156,26 @@ public class PerfectLink {
                 // Invalid message format
                 return;
             }
+
       
             int NumberOfMessage = Integer.parseInt(parts[0]);
             int senderId = Integer.parseInt(parts[1]);
-            //System.out.println(received);
-            for(int i =2; i<NumberOfMessage*2+2; i+=2){
+            int max = NumberOfMessage*2+2;
+
+            sendAck(received, senderId);
+
+
+            for(int i =2; i<max; i+=2){
                 int creator = Integer.parseInt(parts[i]);
                 int seqNum = Integer.parseInt(parts[i+1]);
-                Message msg = new Message(seqNum, creator, senderId, myId, false, false, true);
-                Message msg_ack = new Message(seqNum, creator, myId, senderId, true, false, false);
-                sendAck(msg_ack);
-                if (!deliveredMessages.contains(msg)) {
-                    deliveredMessages.add(msg);
-                    System.out.println("delivers " + creator + ":"+seqNum);
-    
-                    // Enqueue the message (excluding senderId) for delivery
-                    logger.logDeliver(senderId, seqNum);
-                    if(broadcaster != null){
-                        //broadcaster.urbDeliver(message);
-                    }
+                Map.Entry<Integer,Integer> pair = new AbstractMap.SimpleEntry<>(creator, seqNum);
+                if (!deliveredMessages.contains(pair)) {
+                    deliveredMessages.add(pair);
+        
+                    logger.logDeliver(pair); 
                 }
             }
+            
 
         }
     }
@@ -171,17 +185,28 @@ public class PerfectLink {
         while (true){
             try{
 
-                /*synchronized (MapMessageWithoutAck) {
+                logger.logDebug("MapMessageWithoutAck: "+ MapMessageWithoutAck.size());
+
+                 synchronized (MapMessageWithoutAck) {
                     while (MapMessageWithoutAck.size() >= windowSize) {
-                        System.err.println("bloqué ici ");
-                        MapMessageWithoutAck.wait();
+                        logger.logDebug("PerfectLink queueUpdate() : je suis bloqué car la map : " + MapMessageWithoutAck.size() + " est plus grand que la window : " + windowSize);
+                       try {
+                            Thread.sleep(1000);
+                       } catch (Exception e) {
+                        // TODO: handle exception
+                       }
                     }
-                } */
+                }
+
+                
                 Message message = SendQueue.take();
-                System.out.println("message : " + message.creatorId +":"+ message.seqNum);
+                //System.out.println("message : " + message.creatorId +":"+ message.seqNum);
             
                 if (message != null) {
                     // Extract the message and receiver
+
+                    Packet packet = new Packet(new ArrayList<>(), message.destinationId);
+                    packet.messagesPairs.add(new AbstractMap.SimpleEntry<>(message.creatorId, message.seqNum));
 
                     int destinationId = message.destinationId;
                     int seqNum = message.seqNum;
@@ -193,6 +218,8 @@ public class PerfectLink {
                         if (msg.destinationId == destinationId){
                             messagesList.add(msg);
                             SendQueue.remove(msg);
+                            packet.messagesPairs.add(new AbstractMap.SimpleEntry<>(msg.creatorId, msg.seqNum));
+
                         }
                         if (messagesList.size() == 8) {
                             break;
@@ -209,15 +236,16 @@ public class PerfectLink {
                         messageDataBuilder.append(":").append(msg.creatorId).append(":").append(msg.seqNum);
                     }
                     String messageData = messageDataBuilder.toString();
-                    System.out.println(messageData);
+
+                    MapMessageWithoutAck.add(packet);
                     
                     // Send the packet
                     try {
-                        sendMessage(message, messageData);
                         for(Message msg : messagesList){
-                            MapMessageWithoutAck.add(msg);
+                            
                             logger.logSend(msg.seqNum);
                         }
+                        sendMessage(packet, messageData);
                         
                     } catch (Exception e) {
                         e.printStackTrace();
@@ -234,25 +262,25 @@ public class PerfectLink {
         try {
             while (true) {
                 // Sleep for the timeout duration
-                Thread.sleep(500);
+                Thread.sleep(WINDOW_TIMEOUT);
 
-                System.out.println("\nACK count: " + NumberOfAck.get());
-                System.out.println("Timeout count: " + NumberOfTimeOut.get());
-                System.out.println("Window size: " + windowSize);
-                System.out.println("Timeout: " + WINDOW_TIMEOUT);
-                System.out.println("Delivered messages: " + deliveredMessages.size());
-                System.out.println("MessageWithAck: " + MapMessageWithoutAck.size());
-                System.out.println("Queue: " + SendQueue.size());
+                //System.out.println("\nACK count: " + NumberOfAck.get());
+                //System.out.println("Timeout count: " + NumberOfTimeOut.get());
+                //System.out.println("Window size: " + windowSize);
+                //System.out.println("Timeout: " + WINDOW_TIMEOUT);
+                //System.out.println("Delivered messages: " + deliveredMessages.size());
+                //System.out.println("MessageWithAck: " + MapMessageWithoutAck.size());
+                //System.out.println("Queue: " + SendQueue.size());
 
                 double Rate = (double) NumberOfAck.get() / (NumberOfAck.get() + NumberOfTimeOut.get());
                 if (Rate < 0.3) {
                     windowSize = Math.max(windowSize / 2, MIN_WINDOW_SIZE);
-                    System.out.println("Decreasing window size to " + windowSize);
+                    logger.logDebug("PerfectLink window Update () : Baisse taille de window : " + windowSize);
                 } else if (Rate > 0.7) {
                     windowSize = Math.min(windowSize * 2, MAX_WINDOW_SIZE);
-                    System.out.println("Increasing window size to " + windowSize);
+                    logger.logDebug("PerfectLink window Update () : Augmente taille de window : " + windowSize);
                 } else {
-                    System.out.println("Keeping window size at " + windowSize);
+                    logger.logDebug("PerfectLink window Update () : Garde la taille de window " + windowSize);
                 }
 
                 // Reset counters for the next interval
@@ -284,46 +312,63 @@ public class PerfectLink {
 
     
 
-    private void sendMessage(Message msg, String string) {
+    private void sendMessage(Packet packet, String string) {
+        System.out.println("Envoie");
         try{
-            Host destination = hosts.get(msg.destinationId);
+            Host destination = hosts.get(packet.destinationId);
             InetAddress address = InetAddress.getByName(destination.getIp());
             byte[] buf = string.getBytes();
-            DatagramPacket packet = new DatagramPacket(buf, buf.length, address, destination.getPort());
-            socket.send(packet);
+            DatagramPacket packet_send = new DatagramPacket(buf, buf.length, address, destination.getPort());
+            logger.logDebug("PerfectLink sendMessage() : envoie : "+ string + " au port : "+ packet_send.getPort());
+            socket.send(packet_send);
 
-            if(msg.is_data){
+            if(packet.nature==2){
                 scheduler.schedule(() -> {
-                    if (MapMessageWithoutAck.contains(msg)) {
+                    if (MapMessageWithoutAck.contains(packet)) {
                         try {
-                            //System.out.println("resend messages");
-                            sendMessage(msg, string);
+                            logger.logDebug("PerfectLink sendMessage() : doit renvoyer le packet car pas de ack reçu " + string);
+                            sendMessage(packet, string);
                             NumberOfTimeOut.incrementAndGet();
                         } catch (Exception e) {
                             e.printStackTrace();
                         }
                     }
                 }, RETRANSMIT_TIMEOUT, TimeUnit.MILLISECONDS);
-            }    
+            }  
+            
         } catch (Exception e) {
             e.printStackTrace();
         }
     }
 
 
-    public void sendAck(Message message) {
-        // ACK message format: "ACK:ackSenderId:originalSenderId:seqNum"
-        String ackMessage = "ACK:" + myId + ":" + message.creatorId + ":" + message.seqNum;
-        // Send the ACK directly without adding to sendQueue
-        sendMessage(message, ackMessage);
+    public void sendAck(String string, int destinationId) {
+        System.out.println("Envoie ack");
+        try {
+            StringBuilder messageAckBuilder = new StringBuilder();
+            messageAckBuilder.append("ACK:").append(myId).append(string);
+            String messageAck = messageAckBuilder.toString();
+            Host destination = hosts.get(destinationId);
+            InetAddress address = InetAddress.getByName(destination.getIp());
+            byte[] buf = messageAck.getBytes();
+            DatagramPacket packet_send = new DatagramPacket(buf, buf.length, address, destination.getPort());
+            logger.logDebug("PerfectLink sendAck() : envoie : "+ messageAck + " au port : "+ packet_send.getPort());
+            socket.send(packet_send);
+        } catch (Exception e) {
+            // TODO: handle exception
+        }
     }
 
 
     public void sendAckURB(Message message) {
         // ACK message format: "ACK:ackSenderId:originalSenderId:seqNum"
-        String ackMessageURB = "ACK_URB:" + myId + ":" + message.creatorId + ":" + message.seqNum;
+        String ackMessage = "ACK_URB:" + myId + ":" + message.creatorId + ":" + message.seqNum;
         // Send the ACK directly without adding to sendQueue
-        sendMessage(message, ackMessageURB);
+      
+        Packet packet = new Packet(new ArrayList<>(), message.destinationId);
+        packet.messagesPairs.add(new AbstractMap.SimpleEntry<>(message.creatorId, message.seqNum));
+
+        sendMessage(packet, ackMessage);
     }
     
 }
